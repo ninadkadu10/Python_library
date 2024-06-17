@@ -1,1 +1,54 @@
-.
+from apify_client import ApifyClient
+import pandas as pd
+from datetime import datetime
+import json
+
+# Initialize the ApifyClient with your Apify API token
+client = ApifyClient("apify_api_jWcADVaqczJPlfAkdeYUGZucVMMN2B1lPveK")
+
+# Prepare the Actor input
+def twitter_hashtagtopost(apifyclient, hashtags=[], limit=5):
+    try:
+        if not hashtags:
+            print("List is empty.")
+            return None
+
+        run_input = {
+            "handles": hashtags,
+            "tweetsDesired": limit,
+            "proxyConfig": { "useApifyProxy": True },
+        }
+
+        # Run the Actor and wait for it to finish
+        run = apifyclient.actor("quacker/twitter-scraper").call(run_input=run_input)
+
+        # Fetch and print Actor results from the run's dataset (if there are any)
+        results_list = []
+        for item in apifyclient.dataset(run["defaultDatasetId"]).iterate_items():
+            item["fetch_datetime"] = datetime.now()  # Add fetch datetime to each item
+            results_list.append(item)
+
+        df = pd.DataFrame(results_list)
+
+        if df.empty:
+            print("No data returned.")
+            return None
+
+        return df
+    except Exception as e:
+        print("Error:", e)
+        return None
+
+df_output = twitter_hashtagtopost(client, ['delhi'], 5)
+
+if df_output is None:
+    print("Actor didn't run or encountered an error.")
+else:
+    # Convert DataFrame to JSON
+    json_data = df_output.to_json(orient="records")
+
+    # Save JSON data to a file
+    with open("1_d_Twitter_hashtag_to_post.json", "w") as json_file:
+        json.dump(json_data, json_file)
+
+    print("JSON file saved successfully.")
